@@ -45,6 +45,13 @@ export default function RootLayout({ children }:Readonly<{
         <link rel="apple-touch-icon" href="/logo.png" />
         <link rel="manifest" href="/manifest.json" />
 
+        {/* Start roadblock image download before React hydrates */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var c=document.cookie.match(/(?:^|; )roadblock_seen=([^;]*)/);var d=new Date();var key=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();if(c&&decodeURIComponent(c[1])===key)return;var m=['january','february','march','april','may','june','july','august','september','october','november','december'];var urls=['/roadblock/'+m[d.getMonth()]+'/'+d.getDate()+'.jpg','/roadblock/default/default.jpg'];urls.forEach(function(u){var l=document.createElement('link');l.rel='preload';l.as='image';l.href=u;document.head.appendChild(l);});}catch(e){}})();`,
+          }}
+        />
+
         <OneSignalInit />
 
         {/* Google Tag Manager */}

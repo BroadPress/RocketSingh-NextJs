@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 const COOKIE_NAME = "roadblock_seen";
 const IMAGE_LOAD_BUDGET_MS = 6_000;
@@ -39,6 +39,17 @@ function setDailyCookie(name: string, value: string) {
   document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=86400; Path=/; SameSite=Lax`;
 }
 
+/** Prefetch so the browser starts the download before React paints. */
+function injectPreload(href: string) {
+  if (document.querySelector(`link[data-roadblock-preload="${href}"]`)) return;
+  const link = document.createElement("link");
+  link.rel = "preload";
+  link.as = "image";
+  link.href = href;
+  link.setAttribute("data-roadblock-preload", href);
+  document.head.appendChild(link);
+}
+
 function loadImage(src: string, signal: AbortSignal) {
   return new Promise<boolean>((resolve) => {
     if (signal.aborted) {
@@ -47,7 +58,10 @@ function loadImage(src: string, signal: AbortSignal) {
     }
 
     const img = new Image();
+    let settled = false;
     const done = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
       img.onload = null;
       img.onerror = null;
       resolve(ok);
@@ -74,8 +88,11 @@ const RoadBlock = ({ onSettled }: RoadBlockProps) => {
   const [showRoadBlock, setShowRoadBlock] = useState(false);
   const [displayTimeLeft, setDisplayTimeLeft] = useState(CLOSE_UNLOCK_SECONDS);
   const [isNarrow, setIsNarrow] = useState(false);
+  const settledRef = useRef(false);
 
   const settle = useCallback(() => {
+    if (settledRef.current) return;
+    settledRef.current = true;
     onSettled?.();
   }, [onSettled]);
 
@@ -94,13 +111,23 @@ const RoadBlock = ({ onSettled }: RoadBlockProps) => {
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  // Preload image (6s budget), then show roadblock — once per day via cookie
+  // Show roadblock overlay immediately; load image within 6s; once per day via cookie
   useEffect(() => {
     const seen = getCookie(COOKIE_NAME);
     if (seen === todayKey()) {
       settle();
       return;
     }
+
+    const primary = `/roadblock/${month}/${day}.jpg`;
+    const fallback = "/roadblock/default/default.jpg";
+    injectPreload(primary);
+    injectPreload(fallback);
+
+    // Appear first — overlay before image finishes
+    setShowRoadBlock(true);
+    document.body.classList.add("hideScroll");
+    setDailyCookie(COOKIE_NAME, todayKey());
 
     const controller = new AbortController();
     let finished = false;
@@ -111,14 +138,13 @@ const RoadBlock = ({ onSettled }: RoadBlockProps) => {
       window.clearTimeout(timeout);
 
       if (!src) {
+        document.body.classList.remove("hideScroll");
+        setShowRoadBlock(false);
         settle();
         return;
       }
 
-      setDailyCookie(COOKIE_NAME, todayKey());
       setImageSrc(src);
-      setShowRoadBlock(true);
-      document.body.classList.add("hideScroll");
     };
 
     const timeout = window.setTimeout(() => {
@@ -127,15 +153,17 @@ const RoadBlock = ({ onSettled }: RoadBlockProps) => {
     }, IMAGE_LOAD_BUDGET_MS);
 
     (async () => {
-      const primary = `/roadblock/${month}/${day}.jpg`;
-      if (await loadImage(primary, controller.signal)) {
+      // Load both in parallel so a missing daily image doesn't delay the default
+      const primaryOk = loadImage(primary, controller.signal);
+      const fallbackOk = loadImage(fallback, controller.signal);
+
+      if (await primaryOk) {
         finish(primary);
         return;
       }
       if (controller.signal.aborted || finished) return;
 
-      const fallback = "/roadblock/default/default.jpg";
-      if (await loadImage(fallback, controller.signal)) {
+      if (await fallbackOk) {
         finish(fallback);
         return;
       }
@@ -151,21 +179,22 @@ const RoadBlock = ({ onSettled }: RoadBlockProps) => {
     };
   }, [month, day, settle]);
 
-  useEffect(() => {
-    if (!showRoadBlock) return;
-    const timer = window.setTimeout(onClose, AUTO_CLOSE_SECONDS * 1000);
-    return () => window.clearTimeout(timer);
-  }, [showRoadBlock, onClose]);
-
+  // Countdown + auto-close only after the banner image is visible
   useEffect(() => {
     if (!showRoadBlock || !imageReady) return;
-    const timer = setInterval(() => {
-      setDisplayTimeLeft((prev: number) => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [showRoadBlock, imageReady]);
 
-  if (!showRoadBlock || !imageSrc) return null;
+    const autoClose = window.setTimeout(onClose, AUTO_CLOSE_SECONDS * 1000);
+    const tick = window.setInterval(() => {
+      setDisplayTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(autoClose);
+      window.clearInterval(tick);
+    };
+  }, [showRoadBlock, imageReady, onClose]);
+
+  if (!showRoadBlock) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#D0D0D0]">
@@ -197,25 +226,29 @@ const RoadBlock = ({ onSettled }: RoadBlockProps) => {
           </button>
         )}
 
-        <a href="#" target="_blank" rel="noopener noreferrer">
-          <img
-            src={imageSrc}
-            ref={(el) => {
-              if (el?.complete && el.naturalWidth > 0) setImageReady(true);
-            }}
-            onLoad={() => setImageReady(true)}
-            className="img-fluid rounded"
-            style={{
-              borderRadius: "3%",
-              objectFit: "contain",
-              height: "550px",
-              width: "550px",
-              opacity: imageReady ? 1 : 0,
-              display: "block",
-            }}
-            alt="Advertisement"
-          />
-        </a>
+        {imageSrc ? (
+          <a href="#" target="_blank" rel="noopener noreferrer">
+            <img
+              src={imageSrc}
+              fetchPriority="high"
+              decoding="sync"
+              ref={(el) => {
+                if (el?.complete && el.naturalWidth > 0) setImageReady(true);
+              }}
+              onLoad={() => setImageReady(true)}
+              className="img-fluid rounded"
+              style={{
+                borderRadius: "3%",
+                objectFit: "contain",
+                height: "550px",
+                width: "550px",
+                opacity: imageReady ? 1 : 0,
+                display: "block",
+              }}
+              alt="Advertisement"
+            />
+          </a>
+        ) : null}
       </div>
     </div>
   );

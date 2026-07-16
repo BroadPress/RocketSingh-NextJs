@@ -120,7 +120,8 @@ body{
 .smart-app-banner {
   position: fixed;
   inset: max(8px, env(safe-area-inset-top, 0px)) 10px auto 10px;
-  z-index: 10001;
+  /* Below roadblock (z-9999) so it never covers the popup */
+  z-index: 9000;
   pointer-events: none;
 }
 

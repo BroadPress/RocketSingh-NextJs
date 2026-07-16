@@ -62,8 +62,9 @@ export default function SmartAppBanner({ ready = true }: SmartAppBannerProps) {
     };
 
     (async () => {
+      // Only after roadblock is done AND the page has fully loaded
       await whenPageFullyLoaded();
-      if (cancelled) return;
+      if (cancelled || !ready) return;
 
       setHostname(window.location.hostname.replace(/^www\./, ""));
       setVisible(true);
