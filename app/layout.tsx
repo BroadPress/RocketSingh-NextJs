@@ -5,6 +5,7 @@ import LayoutChrome from '../components/LayoutChrome';
 import GoogleAnalytics from '../components/GoogleAnalytics';
 import { OneSignalInit } from './OneSignal';
 import { Suspense } from 'react';
+import { THEME_STORAGE_KEY } from '../lib/theme';
 
 
 export const metadata = {
@@ -39,8 +40,13 @@ export default function RootLayout({ children }:Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("${THEME_STORAGE_KEY}");if(t==="dark"){document.documentElement.classList.add("dark")}}catch(e){}})();`,
+          }}
+        />
         <link rel="icon" type="image/png" href="/logo.png" />
         <link rel="apple-touch-icon" href="/logo.png" />
         <link rel="manifest" href="/manifest.json" />

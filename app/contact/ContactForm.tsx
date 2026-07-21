@@ -45,16 +45,27 @@ export default function ContactForm() {
     setSubmitError(null);
     setSubmitSuccess(false);
 
-    const emailErr = emailValidationError(email);
-    setEmailError(emailErr);
-    if (emailErr) return;
-
     if (!fullName.trim() || fullName.trim().length < 2) {
       setSubmitError("Please enter your full name.");
       return;
     }
 
-    if (phone && !/^\d{7,15}$/.test(phone)) {
+    if (!email.trim()) {
+      setEmailError("Email is required.");
+      setSubmitError("Please fill in all required fields (marked with *).");
+      return;
+    }
+
+    const emailErr = emailValidationError(email);
+    setEmailError(emailErr);
+    if (emailErr) return;
+
+    if (!phone.trim()) {
+      setSubmitError("Please fill in all required fields (marked with *).");
+      return;
+    }
+
+    if (!/^\d{7,15}$/.test(phone)) {
       setSubmitError("Phone must be 7–15 digits.");
       return;
     }
@@ -120,7 +131,7 @@ export default function ContactForm() {
 
         <div className="flex flex-col gap-1">
           <label htmlFor={`${formId}-email`} className={fieldLabelClass()}>
-            eMail
+            eMail<span className="text-red-600"> *</span>
           </label>
           <input
             id={`${formId}-email`}
@@ -130,9 +141,10 @@ export default function ContactForm() {
             onChange={(e) => {
               const v = e.target.value;
               setEmail(v);
-              setEmailError(emailValidationError(v));
+              setEmailError(v.trim() ? emailValidationError(v) : null);
             }}
             autoComplete="email"
+            required
             aria-invalid={emailError ? true : undefined}
           />
           {emailError ? (
@@ -142,7 +154,7 @@ export default function ContactForm() {
 
         <div className="flex flex-col gap-1">
           <label htmlFor={`${formId}-phone`} className={fieldLabelClass()}>
-            Phone Number
+            Phone Number<span className="text-red-600"> *</span>
           </label>
           <input
             id={`${formId}-phone`}
@@ -153,6 +165,7 @@ export default function ContactForm() {
             value={phone}
             onChange={(e) => setPhone(onlyDigits(e.target.value).slice(0, 15))}
             autoComplete="tel"
+            required
           />
         </div>
 

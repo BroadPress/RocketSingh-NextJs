@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
-import { Phone } from "lucide-react";
+import { Moon, Phone, Sun } from "lucide-react";
 import BrandLogo from "./BrandLogo";
 import SideNavDrawer from "./SideNavDrawer";
+import { initThemeFromStorage, toggleTheme } from "@/lib/theme";
 
 const PHONE_HREF = "tel:+918190074189";
 
@@ -14,14 +15,8 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("Theme");
-    if (savedTheme === "dark") {
-      document.body.classList.add("dark");
-      setDarkIcon(false);
-    } else {
-      document.body.classList.remove("dark");
-      setDarkIcon(true);
-    }
+    initThemeFromStorage();
+    setDarkIcon(!document.documentElement.classList.contains("dark"));
   }, []);
 
   useEffect(() => {
@@ -32,15 +27,8 @@ const Header = () => {
   }, []);
 
   const triggerTheme = () => {
-    if (document.body.classList.contains("dark")) {
-      document.body.classList.remove("dark");
-      localStorage.setItem("Theme", "light");
-      setDarkIcon(true);
-    } else {
-      document.body.classList.add("dark");
-      localStorage.setItem("Theme", "dark");
-      setDarkIcon(false);
-    }
+    const next = toggleTheme();
+    setDarkIcon(next === "light");
   };
 
   return (
@@ -77,13 +65,14 @@ const Header = () => {
 
           <div className="hidden sm:block lg:ml-2">
             <button
+              type="button"
               onClick={triggerTheme}
-              className={`text-2xl cursor-pointer rounded-full h-8 w-8 flex items-center justify-center ${
-                darkIcon ? "bg-black text-white rotate-45" : "bg-white text-black"
+              className={`theme-toggle-btn ${
+                darkIcon ? "theme-toggle-btn--moon" : "theme-toggle-btn--sun"
               }`}
-              aria-label="Toggle Dark Mode"
+              aria-label={darkIcon ? "Switch to dark mode" : "Switch to light mode"}
             >
-              {darkIcon ? "☽" : "☀︎"}
+              {darkIcon ? <Moon size={17} strokeWidth={2.25} /> : <Sun size={17} strokeWidth={2.25} />}
             </button>
           </div>
 

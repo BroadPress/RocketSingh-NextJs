@@ -3,8 +3,8 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-const PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=com.pracas.rocketsingh";
+import { PLAY_STORE_URL } from "../lib/app-links";
+
 const AUTO_HIDE_MS = 30_000;
 const SCROLL_THRESHOLD = 8;
 
