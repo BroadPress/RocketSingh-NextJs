@@ -104,7 +104,7 @@ export default function Home() {
           <div className="w-full md:w-1/2">
             <div className="relative w-full overflow-hidden rounded-3xl shadow-2xl border border-teal-100 bg-gray-50">
               <Image
-                src="/home/hero.png"
+                src="/home/hero.jpg"
                 alt="Rocket Singh — Superfast Service"
                 width={1024}
                 height={512}
